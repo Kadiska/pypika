@@ -2,7 +2,7 @@ import itertools
 from copy import copy
 from typing import Any, Optional, Union, Tuple as TypedTuple
 
-from pypika.enums import Dialects
+from pypika.enums import Dialects, Order
 from pypika.queries import (
     CreateQueryBuilder,
     Database,
@@ -786,6 +786,7 @@ class ClickHouseQueryBuilder(QueryBuilder):
         self._final = False
         self._sample = None
         self._sample_offset = None
+        self._orderbys = []
 
     @builder
     def final(self) -> "ClickHouseQueryBuilder":
@@ -795,6 +796,53 @@ class ClickHouseQueryBuilder(QueryBuilder):
     def sample(self, sample: int, offset: Optional[int] = None) -> "ClickHouseQueryBuilder":
         self._sample = sample
         self._sample_offset = offset
+
+    @builder
+    def orderby(
+        self,
+        field: Field,
+        order: Optional[Order] = None,
+        with_fill: Optional[bool] = False,
+        step: Optional[Term] = None,
+        from_: Optional[Term] = None,
+        to: Optional[Term] = None,
+    ) -> "_SetOperation":
+        value = (
+            Field(field, table=self.base_query._from[0])
+            if isinstance(field, str)
+            else self.base_query.wrap_constant(field)
+        )
+        with_fill = with_fill or step is not None or from_ is not None or to is not None
+        step = None if not with_fill or step is None else self.base_query.wrap_constant(step)
+        from_ = None if not with_fill or from_ is None else self.base_query.wrap_constant(from_)
+        to = None if not with_fill or to is None else self.base_query.wrap_constant(to)
+        self._orderbys.append((value, order, with_fill, step, from_, to))
+
+    def _orderby_sql(self, quote_char: Optional[str] = None, **kwargs: Any) -> str:
+        """
+        Produces the ORDER BY part of the query.  This is a list of fields and possibly their directionality, ASC or
+        DESC. The clauses are stored in the query under self._orderbys as a list of tuples containing the field and
+        directionality (which can be None).
+
+        If an order by field is used in the select clause, determined by a matching , then the ORDER BY clause will use
+        the alias, otherwise the field will be rendered as SQL.
+        """
+        clauses = []
+        for field, directionality, with_fill, step, from_, to in self._orderbys:
+            keywords = [field.get_sql(quote_char=quote_char, **kwargs)]
+            if directionality is not None and directionality.value is not None:
+                keywords.append(directionality.value)
+            if with_fill is not False:
+                keywords.append("WITH FILL")
+            if step is not None:
+                keywords.append(f"STEP {step.get_sql(quote_char=quote_char, **kwargs)}")
+            if from_ is not None:
+                keywords.append(f"FROM {from_.get_sql(quote_char=quote_char, **kwargs)}")
+            if to is not None:
+                keywords.append(f"TO {to.get_sql(quote_char=quote_char, **kwargs)}")
+            clauses.append(" ".join(keywords))
+
+        return " ORDER BY {orderby}".format(orderby=",".join(clauses))
 
     @staticmethod
     def _delete_sql(**kwargs: Any) -> str:

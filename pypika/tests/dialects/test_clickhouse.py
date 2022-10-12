@@ -4,29 +4,86 @@ from pypika import (
     ClickHouseQuery,
     Database,
     Table,
+    Order,
+    functions as fn,
 )
 
 
 class ClickHouseQueryTests(TestCase):
+    t = Table('abc')
+
     def test_use_AS_keyword_for_alias(self):
-        t = Table('abc')
-        query = ClickHouseQuery.from_(t).select(t.foo.as_('f1'), t.bar.as_('f2'))
+        query = ClickHouseQuery.from_(self.t).select(self.t.foo.as_('f1'), self.t.bar.as_('f2'))
         self.assertEqual(str(query), 'SELECT "foo" AS "f1","bar" AS "f2" FROM "abc"')
 
     def test_use_SAMPLE_keyword(self):
-        t = Table('abc')
-        query = ClickHouseQuery.from_(t).select(t.foo).sample(10)
+        query = ClickHouseQuery.from_(self.t).select(self.t.foo).sample(10)
         self.assertEqual(str(query), 'SELECT "foo" FROM "abc" SAMPLE 10')
 
     def test_use_SAMPLE_with_offset_keyword(self):
-        t = Table('abc')
-        query = ClickHouseQuery.from_(t).select(t.foo).sample(10, 5)
+        query = ClickHouseQuery.from_(self.t).select(self.t.foo).sample(10, 5)
         self.assertEqual(str(query), 'SELECT "foo" FROM "abc" SAMPLE 10 OFFSET 5')
 
     def test_use_FINAL_keyword(self):
-        t = Table('abc')
-        query = ClickHouseQuery.from_(t).select(t.foo).final()
+        query = ClickHouseQuery.from_(self.t).select(self.t.foo).final()
         self.assertEqual(str(query), 'SELECT "foo" FROM "abc" FINAL')
+
+    def test_orderby_single_field(self):
+        q = ClickHouseQuery.from_(self.t).orderby(self.t.foo).select(self.t.foo)
+
+        self.assertEqual('SELECT "foo" FROM "abc" ORDER BY "foo"', str(q))
+
+    def test_orderby_multi_fields(self):
+        q = ClickHouseQuery.from_(self.t).orderby(self.t.foo).orderby(self.t.bar).select(self.t.foo, self.t.bar)
+
+        self.assertEqual('SELECT "foo","bar" FROM "abc" ORDER BY "foo","bar"', str(q))
+
+    def test_orderby_asc(self):
+        q = ClickHouseQuery.from_(self.t).orderby(self.t.foo, order=Order.asc).select(self.t.foo)
+
+        self.assertEqual('SELECT "foo" FROM "abc" ORDER BY "foo" ASC', str(q))
+
+    def test_orderby_desc(self):
+        q = ClickHouseQuery.from_(self.t).orderby(self.t.foo, order=Order.desc).select(self.t.foo)
+
+        self.assertEqual('SELECT "foo" FROM "abc" ORDER BY "foo" DESC', str(q))
+
+    def test_orderby_no_alias(self):
+        bar = self.t.bar.as_("bar01")
+        q = ClickHouseQuery.from_(self.t).select(fn.Sum(self.t.foo), bar).orderby(bar)
+
+        self.assertEqual(
+            'SELECT SUM("foo"),"bar" AS "bar01" FROM "abc" ORDER BY "bar"',
+            q.get_sql(orderby_alias=False),
+        )
+
+    def test_orderby_with_fill(self):
+        bar = self.t.bar.as_("bar01")
+        q = ClickHouseQuery.from_(self.t).select(fn.Sum(self.t.foo), bar).orderby(bar, with_fill=True)
+
+        self.assertEqual(
+            'SELECT SUM("foo"),"bar" AS "bar01" FROM "abc" ORDER BY "bar" WITH FILL',
+            q.get_sql(),
+        )
+
+    def test_orderby_with_fill_and_step(self):
+        bar = self.t.bar.as_("bar01")
+        q = ClickHouseQuery.from_(self.t).select(fn.Sum(self.t.foo), bar).orderby(bar, with_fill=True, step=5)
+
+        self.assertEqual(
+            'SELECT SUM("foo"),"bar" AS "bar01" FROM "abc" ORDER BY "bar" WITH FILL STEP 5',
+            q.get_sql(),
+        )
+
+
+    def test_orderby_with_fill_from_step(self):
+        bar = self.t.bar.as_("bar01")
+        q = ClickHouseQuery.from_(self.t).select(fn.Sum(self.t.foo), bar).orderby(bar, with_fill=True, step=5, from_=0, to=10)
+
+        self.assertEqual(
+            'SELECT SUM("foo"),"bar" AS "bar01" FROM "abc" ORDER BY "bar" WITH FILL STEP 5 FROM 0 TO 10',
+            q.get_sql(),
+        )
 
 
 class ClickHouseDeleteTests(TestCase):
