@@ -783,8 +783,13 @@ class ClickHouseQueryBuilder(QueryBuilder):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(self, as_keyword=True)
+        self._final = False
         self._sample = None
         self._sample_offset = None
+
+    @builder
+    def final(self) -> "ClickHouseQueryBuilder":
+        self._final = True
 
     @builder
     def sample(self, sample: int, offset: Optional[int] = None) -> "ClickHouseQueryBuilder":
@@ -803,6 +808,8 @@ class ClickHouseQueryBuilder(QueryBuilder):
         if self._delete_from:
             return " {selectable} DELETE".format(selectable=selectable)
         extra_keywords = []
+        if self._final is not False:
+            extra_keywords.append("FINAL")
         if self._sample is not None:
             extra_keywords.append(f"SAMPLE {self._sample}")
         if self._sample_offset is not None:
