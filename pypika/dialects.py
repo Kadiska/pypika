@@ -781,6 +781,16 @@ class ClickHouseQuery(Query):
 class ClickHouseQueryBuilder(QueryBuilder):
     QUERY_CLS = ClickHouseQuery
 
+    def __init__(self, **kwargs) -> None:
+        super().__init__(self, as_keyword=True)
+        self._sample = None
+        self._sample_offset = None
+
+    @builder
+    def sample(self, sample: int, offset: Optional[int] = None) -> "ClickHouseQueryBuilder":
+        self._sample = sample
+        self._sample_offset = offset
+
     @staticmethod
     def _delete_sql(**kwargs: Any) -> str:
         return 'ALTER TABLE'
@@ -792,7 +802,15 @@ class ClickHouseQueryBuilder(QueryBuilder):
         selectable = ",".join(clause.get_sql(subquery=True, with_alias=True, **kwargs) for clause in self._from)
         if self._delete_from:
             return " {selectable} DELETE".format(selectable=selectable)
-        return " FROM {selectable}".format(selectable=selectable)
+        extra_keywords = []
+        if self._sample is not None:
+            extra_keywords.append(f"SAMPLE {self._sample}")
+        if self._sample_offset is not None:
+            extra_keywords.append(f"OFFSET {self._sample_offset}")
+        return " FROM {selectable}{extra}".format(
+            selectable=selectable,
+            extra="" if not extra_keywords else f" {' '.join(extra_keywords)}",
+        )
 
     def _set_sql(self, **kwargs: Any) -> str:
         return " UPDATE {set}".format(
