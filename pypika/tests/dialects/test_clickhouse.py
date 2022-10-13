@@ -81,7 +81,7 @@ class ClickHouseQueryTests(TestCase):
         q = ClickHouseQuery.from_(self.t).select(fn.Sum(self.t.foo), bar).orderby(bar, with_fill=True, step=5, from_=0, to=10)
 
         self.assertEqual(
-            'SELECT SUM("foo"),"bar" AS "bar01" FROM "abc" ORDER BY "bar" WITH FILL STEP 5 FROM 0 TO 10',
+            'SELECT SUM("foo"),"bar" AS "bar01" FROM "abc" ORDER BY "bar" WITH FILL FROM 0 TO 10 STEP 5',
             q.get_sql(),
         )
 

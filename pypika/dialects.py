@@ -808,7 +808,7 @@ class ClickHouseQueryBuilder(QueryBuilder):
         to: Optional[Term] = None,
     ) -> "_SetOperation":
         value = (
-            Field(field, table=self.base_query._from[0])
+            Field(field)
             if isinstance(field, str)
             else self.base_query.wrap_constant(field)
         )
@@ -834,12 +834,12 @@ class ClickHouseQueryBuilder(QueryBuilder):
                 keywords.append(directionality.value)
             if with_fill is not False:
                 keywords.append("WITH FILL")
-            if step is not None:
-                keywords.append(f"STEP {step.get_sql(quote_char=quote_char, **kwargs)}")
             if from_ is not None:
                 keywords.append(f"FROM {from_.get_sql(quote_char=quote_char, **kwargs)}")
             if to is not None:
                 keywords.append(f"TO {to.get_sql(quote_char=quote_char, **kwargs)}")
+            if step is not None:
+                keywords.append(f"STEP {step.get_sql(quote_char=quote_char, **kwargs)}")
             clauses.append(" ".join(keywords))
 
         return " ORDER BY {orderby}".format(orderby=",".join(clauses))
