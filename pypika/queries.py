@@ -1215,7 +1215,7 @@ class QueryBuilder(Selectable, Term):
         kwargs.setdefault("as_keyword", self.as_keyword)
         kwargs.setdefault("dialect", self.dialect)
 
-    def get_sql(self, with_alias: bool = False, subquery: bool = False, **kwargs: Any) -> str:
+    def get_sql(self, with_alias: bool = False, subquery: bool = False, with_namespace: bool = False, **kwargs: Any) -> str:
         self._set_kwargs_defaults(kwargs)
         if not (self._selects or self._insert_table or self._delete_from or self._update_table):
             return ""
@@ -1237,6 +1237,7 @@ class QueryBuilder(Selectable, Term):
                 has_subquery_from_clause,
                 has_reference_to_foreign_table,
                 has_update_from,
+                with_namespace,
             ]
         )
 
