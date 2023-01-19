@@ -565,7 +565,10 @@ class Field(Criterion, JSON):
         with_namespace = kwargs.pop("with_namespace", False)
         quote_char = kwargs.pop("quote_char", None)
 
-        field_sql = format_quotes(self.name, quote_char)
+        field_sql = self.name
+        if quote_char:
+            field_sql = field_sql.replace(quote_char, 2 * quote_char)
+            field_sql = format_quotes(field_sql, quote_char)
 
         # Need to add namespace if the table has an alias
         if self.table and (with_namespace or self.table.alias):
