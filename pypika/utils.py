@@ -101,6 +101,7 @@ def resolve_is_aggregate(values: List[Optional[bool]]) -> Optional[bool]:
 
 def format_quotes(value: Any, quote_char: Optional[str]) -> str:
     if isinstance(value, str):
+        print(value)
         value = value.replace('\\', '\\' * 2)
         if quote_char:
             value = value.replace(quote_char, quote_char * 2)
